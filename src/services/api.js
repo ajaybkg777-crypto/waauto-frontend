@@ -31,7 +31,16 @@ api.interceptors.request.use((config) => {
 api.interceptors.response.use(
   (response) => response,
   (error) => {
-    if (error.response?.status === 401) {
+    const requestUrl = String(error.config?.url || '');
+    const isAuthFormRequest = [
+      '/auth/login',
+      '/auth/admin-login',
+      '/auth/register',
+      '/auth/otp/request',
+      '/auth/otp/verify'
+    ].some((path) => requestUrl.includes(path));
+
+    if (error.response?.status === 401 && !isAuthFormRequest) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
       window.location.href = '/login';

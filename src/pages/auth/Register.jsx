@@ -17,7 +17,7 @@ export default function Register() {
   const [otpCode, setOtpCode] = useState('');
   const [otpToken, setOtpToken] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const otpRequired = import.meta.env.VITE_AUTH_OTP_REQUIRED === 'true';
+  const [otpRequired, setOtpRequired] = useState(import.meta.env.VITE_AUTH_OTP_REQUIRED === 'true');
   const { register } = useAuth();
   const navigate = useNavigate();
 
@@ -97,7 +97,13 @@ export default function Register() {
       toast.success('Account created successfully!');
       navigate('/dashboard');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Registration failed');
+      const message = error.response?.data?.message || 'Registration failed';
+      if (/otp/i.test(message)) {
+        setOtpRequired(true);
+        toast.error('OTP required. Send OTP, verify it, then create account again.');
+      } else {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }

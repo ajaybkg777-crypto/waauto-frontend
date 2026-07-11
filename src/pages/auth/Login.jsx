@@ -13,7 +13,7 @@ export default function Login() {
   const [otpCode, setOtpCode] = useState('');
   const [otpToken, setOtpToken] = useState('');
   const [otpSent, setOtpSent] = useState(false);
-  const otpRequired = import.meta.env.VITE_AUTH_OTP_REQUIRED === 'true';
+  const [otpRequired, setOtpRequired] = useState(import.meta.env.VITE_AUTH_OTP_REQUIRED === 'true');
   const { login } = useAuth();
   const navigate = useNavigate();
 
@@ -85,7 +85,13 @@ export default function Login() {
       toast.success('Login successful!');
       navigate('/dashboard');
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Login failed');
+      const message = error.response?.data?.message || 'Login failed';
+      if (/otp/i.test(message)) {
+        setOtpRequired(true);
+        toast.error('OTP required. Send OTP, verify it, then sign in again.');
+      } else {
+        toast.error(message);
+      }
     } finally {
       setLoading(false);
     }
