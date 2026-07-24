@@ -40,7 +40,7 @@ export default function Broadcast() {
   useEffect(() => {
     const interval = window.setInterval(() => {
       if (!document.hidden) void fetchBroadcasts({ background: true });
-    }, 10000);
+    }, 30000);
     return () => window.clearInterval(interval);
   }, [pagination.page]);
 
@@ -55,16 +55,28 @@ export default function Broadcast() {
     if (!background) setLoading(true);
     if (background) setRefreshing(true);
 
+    const [listResult, statsResult, whatsappResult] = await Promise.allSettled([
+      broadcastAPI.getBroadcasts({ page: pagination.page, limit: 20 }),
+      broadcastAPI.getStats(),
+      whatsappAPI.getConfig()
+    ]);
+
     try {
-      const [listResponse, statsResponse, whatsappResponse] = await Promise.all([
-        broadcastAPI.getBroadcasts({ page: pagination.page, limit: 20 }),
-        broadcastAPI.getStats(),
-        whatsappAPI.getConfig()
-      ]);
-      setBroadcasts(listResponse.data.data || []);
-      setPagination((current) => ({ ...current, ...listResponse.data }));
-      setStats(statsResponse.data.data || {});
-      setWhatsapp(whatsappResponse.data.data || {});
+      if (listResult.status === 'fulfilled') {
+        const listResponse = listResult.value;
+        setBroadcasts(listResponse.data.data || []);
+        setPagination((current) => ({ ...current, ...listResponse.data }));
+      } else {
+        throw listResult.reason;
+      }
+
+      if (statsResult.status === 'fulfilled') {
+        setStats(statsResult.value.data.data || {});
+      }
+
+      if (whatsappResult.status === 'fulfilled') {
+        setWhatsapp(whatsappResult.value.data.data || {});
+      }
     } catch (error) {
       if (!background) toast.error(error.response?.data?.message || 'Failed to fetch broadcasts');
     } finally {

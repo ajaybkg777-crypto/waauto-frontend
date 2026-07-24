@@ -116,25 +116,35 @@ export default function Dashboard() {
     isFetchingRef.current = true;
     if (!background) setRefreshing(true);
 
+    const [statsResult, whatsappResult] = await Promise.allSettled([
+      schoolAPI.getStats(),
+      whatsappAPI.getConfig()
+    ]);
+
     try {
-      const [statsResponse, whatsappResponse] = await Promise.all([
-        schoolAPI.getStats(),
-        whatsappAPI.getConfig()
-      ]);
+      if (statsResult.status === 'rejected') {
+        throw statsResult.reason;
+      }
+
+      const statsResponse = statsResult.value;
       const statsData = statsResponse.data.data || {};
       setStats({
         ...emptyStats,
         ...statsData,
         whatsapp: {
           ...(statsData.whatsapp || {}),
-          ...(whatsappResponse.data.data || {})
+          ...(whatsappResult.status === 'fulfilled' ? whatsappResult.value.data.data || {} : {})
         }
       });
-      setError('');
+      setError(whatsappResult.status === 'rejected'
+        ? 'Meta status could not be refreshed. Showing saved dashboard data.'
+        : '');
       setLastUpdated(new Date());
     } catch (error) {
       console.error('Failed to fetch dashboard:', error);
-      setError(error.response?.data?.message || error.message || 'Dashboard data could not be refreshed.');
+      if (!background || !lastUpdated) {
+        setError(error.response?.data?.message || error.message || 'Dashboard data could not be refreshed.');
+      }
     } finally {
       setLoading(false);
       if (!background) setRefreshing(false);
@@ -149,7 +159,7 @@ export default function Dashboard() {
       if (!document.hidden) {
         void fetchStats({ background: true });
       }
-    }, 10000);
+    }, 30000);
 
     const handleFocus = () => {
       void fetchStats({ background: true });

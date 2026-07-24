@@ -225,12 +225,19 @@ export default function CreateBroadcast() {
   const bootstrap = async () => {
     setBooting(true);
     try {
-      const [templatesResponse, whatsappResponse] = await Promise.all([
+      const [templatesResult, whatsappResult] = await Promise.allSettled([
         templateAPI.syncTemplates().catch(() => templateAPI.getTemplates()),
         whatsappAPI.getConfig()
       ]);
-      setTemplates((templatesResponse.data.data || []).filter((template) => template.status === 'approved'));
-      setWhatsapp(whatsappResponse.data.data || {});
+
+      if (templatesResult.status === 'rejected') {
+        throw templatesResult.reason;
+      }
+
+      setTemplates((templatesResult.value.data.data || []).filter((template) => template.status === 'approved'));
+      if (whatsappResult.status === 'fulfilled') {
+        setWhatsapp(whatsappResult.value.data.data || {});
+      }
     } catch (error) {
       toast.error(error.response?.data?.message || 'Could not load broadcast builder');
     } finally {

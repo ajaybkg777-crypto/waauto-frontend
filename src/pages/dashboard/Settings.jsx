@@ -95,12 +95,19 @@ export default function Settings() {
 
   const fetchProfile = async () => {
     try {
-      const [profileRes, whatsappRes] = await Promise.all([
+      const [profileResult, whatsappResult] = await Promise.allSettled([
         schoolAPI.getProfile(),
         whatsappAPI.getConfig()
       ]);
-      setProfile(profileRes.data.data);
-      setWhatsapp(whatsappRes.data.data);
+
+      if (profileResult.status === 'rejected') {
+        throw profileResult.reason;
+      }
+
+      setProfile(profileResult.value.data.data);
+      if (whatsappResult.status === 'fulfilled') {
+        setWhatsapp(whatsappResult.value.data.data);
+      }
 
       const params = new URLSearchParams(window.location.search);
       if (params.get('whatsapp') === 'connected') {

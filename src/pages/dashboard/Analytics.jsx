@@ -39,19 +39,26 @@ export default function Analytics() {
     if (!background) setRefreshing(true);
 
     try {
-      const [statsResponse, whatsappResponse] = await Promise.all([
+      const [statsResult, whatsappResult] = await Promise.allSettled([
         schoolAPI.getStats(),
         whatsappAPI.getConfig()
       ]);
+      if (statsResult.status === 'rejected') {
+        throw statsResult.reason;
+      }
+
+      const statsResponse = statsResult.value;
       setStats({
         ...emptyStats,
         ...(statsResponse.data.data || {}),
         whatsapp: {
           ...(statsResponse.data.data?.whatsapp || {}),
-          ...(whatsappResponse.data.data || {})
+          ...(whatsappResult.status === 'fulfilled' ? whatsappResult.value.data.data || {} : {})
         }
       });
       setLastUpdated(new Date());
+    } catch (error) {
+      console.error('Failed to fetch analytics:', error);
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -64,7 +71,7 @@ export default function Analytics() {
 
     const interval = window.setInterval(() => {
       if (!document.hidden) void fetchAnalytics({ background: true });
-    }, 15000);
+    }, 30000);
 
     const onFocus = () => void fetchAnalytics({ background: true });
     window.addEventListener('focus', onFocus);

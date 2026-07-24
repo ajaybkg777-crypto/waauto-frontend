@@ -12,7 +12,17 @@ export const useAuth = () => {
 };
 
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
+  const getStoredUser = () => {
+    try {
+      const storedUser = localStorage.getItem('user');
+      return storedUser ? JSON.parse(storedUser) : null;
+    } catch (error) {
+      localStorage.removeItem('user');
+      return null;
+    }
+  };
+
+  const [user, setUser] = useState(getStoredUser);
   const [loading, setLoading] = useState(true);
   const [token, setToken] = useState(localStorage.getItem('token'));
 
@@ -23,9 +33,17 @@ export const AuthProvider = ({ children }) => {
         try {
           const response = await authAPI.getMe();
           setUser(response.data.data);
+          localStorage.setItem('user', JSON.stringify(response.data.data));
         } catch (error) {
           console.error('Failed to load user:', error);
-          logout();
+          if (error.response?.status === 401) {
+            logout();
+          } else {
+            const cachedUser = getStoredUser();
+            if (cachedUser) {
+              setUser(cachedUser);
+            }
+          }
         }
       }
       setLoading(false);

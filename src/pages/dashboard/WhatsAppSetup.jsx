@@ -86,7 +86,7 @@ export default function WhatsAppSetup() {
       if (!document.hidden) {
         void fetchSetup({ background: true });
       }
-    }, 15000);
+    }, 30000);
 
     const handleFocus = () => {
       void fetchSetup({ background: true });
@@ -133,11 +133,16 @@ export default function WhatsAppSetup() {
     if (!background) setRefreshing(true);
 
     try {
-      const [profileRes, whatsappRes] = await Promise.all([
+      const [profileResult, whatsappResult] = await Promise.allSettled([
         schoolAPI.getProfile(),
         whatsappAPI.getConfig()
       ]);
-      const school = profileRes.data.data || {};
+
+      if (profileResult.status === 'rejected') {
+        throw profileResult.reason;
+      }
+
+      const school = profileResult.value.data.data || {};
 
       setProfile({
         ...emptyProfile,
@@ -148,7 +153,9 @@ export default function WhatsAppSetup() {
           ...(school.address || {})
         }
       });
-      setWhatsapp(whatsappRes.data.data || {});
+      if (whatsappResult.status === 'fulfilled') {
+        setWhatsapp(whatsappResult.value.data.data || {});
+      }
 
       const params = new URLSearchParams(window.location.search);
       if (params.get('whatsapp') === 'connected') {

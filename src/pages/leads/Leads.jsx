@@ -195,7 +195,7 @@ export default function Leads() {
           ? ` (${result.skipped || 0} skipped, ${result.duplicates || 0} duplicates, ${result.errors || 0} errors)`
           : '';
         toast.success(`${result.imported || leads.length} contacts imported${skippedText}`);
-        await Promise.all([fetchLeads(), fetchStats()]);
+        await Promise.allSettled([fetchLeads(), fetchStats()]);
       } catch (error) {
         toast.error(error.response?.data?.message || 'Failed to import CSV');
       } finally {
@@ -224,7 +224,7 @@ export default function Leads() {
       setShowModal(false);
       setEditingLead(null);
       setFormData({ name: '', phone: '', email: '', status: 'new', tags: '', notes: '' });
-      await Promise.all([fetchLeads(), fetchStats()]);
+      await Promise.allSettled([fetchLeads(), fetchStats()]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to save lead');
     }
@@ -248,7 +248,7 @@ export default function Leads() {
     try {
       await leadAPI.deleteLead(id);
       toast.success('Lead deleted successfully');
-      await Promise.all([fetchLeads(), fetchStats()]);
+      await Promise.allSettled([fetchLeads(), fetchStats()]);
     } catch (error) {
       toast.error('Failed to delete lead');
     }
@@ -278,7 +278,7 @@ export default function Leads() {
       toast.success(`${deleted} contact(s) deleted from DB`);
       setSelectedIds([]);
       setPagination((current) => ({ ...current, page: 1 }));
-      await Promise.all([fetchLeads(), fetchStats()]);
+      await Promise.allSettled([fetchLeads(), fetchStats()]);
     } catch (error) {
       toast.error(error.response?.data?.message || 'Failed to bulk delete contacts');
     }

@@ -8,11 +8,33 @@ const normalizeApiUrl = (value) => {
   return raw;
 };
 
-const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL);
+const PRODUCTION_API_URL = 'https://waauto-backend-6aey.onrender.com/api';
+const API_URL = normalizeApiUrl(import.meta.env.VITE_API_URL || PRODUCTION_API_URL);
+
+const SESSION_EXPIRED_MESSAGES = new Set([
+  'Invalid token',
+  'Token expired',
+  'User not found',
+  'User account is deactivated',
+  'Not authorized to access this route'
+]);
+
+const TRANSIENT_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
+const RETRYABLE_METHODS = new Set(['get', 'head', 'options']);
+
+const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
+
+const shouldRetryRequest = (error) => {
+  const method = String(error.config?.method || 'get').toLowerCase();
+  const status = error.response?.status;
+  return RETRYABLE_METHODS.has(method)
+    && (TRANSIENT_STATUSES.has(status) || !error.response);
+};
 
 // Create axios instance
 const api = axios.create({
   baseURL: API_URL,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json'
   }
@@ -30,7 +52,15 @@ api.interceptors.request.use((config) => {
 // Handle errors
 api.interceptors.response.use(
   (response) => response,
-  (error) => {
+  async (error) => {
+    const config = error.config || {};
+    const retryCount = config.__retryCount || 0;
+    if (retryCount < 2 && shouldRetryRequest(error)) {
+      config.__retryCount = retryCount + 1;
+      await sleep(700 * config.__retryCount);
+      return api(config);
+    }
+
     const requestUrl = String(error.config?.url || '');
     const isAuthFormRequest = [
       '/auth/login',
@@ -40,10 +70,17 @@ api.interceptors.response.use(
       '/auth/otp/verify'
     ].some((path) => requestUrl.includes(path));
 
-    if (error.response?.status === 401 && !isAuthFormRequest) {
+    const message = error.response?.data?.message;
+    const isSessionExpired = error.response?.status === 401
+      && !isAuthFormRequest
+      && SESSION_EXPIRED_MESSAGES.has(message);
+
+    if (isSessionExpired) {
       localStorage.removeItem('token');
       localStorage.removeItem('user');
-      window.location.href = '/login';
+      if (window.location.pathname !== '/login') {
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }

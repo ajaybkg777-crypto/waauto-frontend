@@ -192,7 +192,7 @@ export default function LiveChat() {
       if (document.hidden) return;
       void fetchInbox({ quiet: true });
       if (selectedId) void fetchConversation(selectedId, { quiet: true });
-    }, 5000);
+    }, 15000);
     return () => window.clearInterval(timer);
   }, [fetchConversation, fetchInbox, selectedId]);
 
@@ -223,7 +223,7 @@ export default function LiveChat() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await Promise.all([
+    await Promise.allSettled([
       fetchWhatsAppConfig({ quiet: true }),
       fetchInbox({ quiet: true }),
       fetchConversation(selectedId, { quiet: true })
@@ -240,7 +240,7 @@ export default function LiveChat() {
     try {
       await chatAPI.sendMessage(selectedId, { message: trimmed });
       setMessage('');
-      await Promise.all([
+      await Promise.allSettled([
         fetchConversation(selectedId, { quiet: true }),
         fetchInbox({ quiet: true })
       ]);

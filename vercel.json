@@ -4,7 +4,23 @@
   "installCommand": "npm install",
   "rewrites": [
     {
-      "source": "/((?!assets/|favicon.ico|manifest.webmanifest).*)",
+      "source": "/api/(.*)",
+      "destination": "https://waauto-backend-6aey.onrender.com/api/$1"
+    },
+    {
+      "source": "/auth/(.*)",
+      "destination": "https://waauto-backend-6aey.onrender.com/auth/$1"
+    },
+    {
+      "source": "/webhook/(.*)",
+      "destination": "https://waauto-backend-6aey.onrender.com/webhook/$1"
+    },
+    {
+      "source": "/uploads/(.*)",
+      "destination": "https://waauto-backend-6aey.onrender.com/uploads/$1"
+    },
+    {
+      "source": "/((?!assets/|favicon.ico|manifest.webmanifest|api/|auth/|webhook/|uploads/).*)",
       "destination": "/index.html"
     }
   ]
