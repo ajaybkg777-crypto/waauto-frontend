@@ -24,6 +24,7 @@ const SESSION_EXPIRED_MESSAGES = new Set([
 
 const TRANSIENT_STATUSES = new Set([408, 425, 429, 500, 502, 503, 504]);
 const RETRYABLE_METHODS = new Set(['get', 'head', 'options']);
+const MEDIA_UPLOAD_TIMEOUT_MS = 5 * 60 * 1000;
 
 const sleep = (ms) => new Promise((resolve) => window.setTimeout(resolve, ms));
 
@@ -167,10 +168,12 @@ export const broadcastAPI = {
   getBroadcasts: (params) => api.get('/broadcasts', { params }),
   getBroadcast: (id) => api.get(`/broadcasts/${id}`),
   uploadMedia: (data) => api.post('/broadcasts/upload-media', data, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: MEDIA_UPLOAD_TIMEOUT_MS
   }),
   uploadImage: (data) => api.post('/broadcasts/upload-image', data, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: MEDIA_UPLOAD_TIMEOUT_MS
   }),
   createBroadcast: (data) => api.post('/broadcasts', data),
   updateBroadcast: (id, data) => api.put(`/broadcasts/${id}`, data),
@@ -184,7 +187,8 @@ export const broadcastAPI = {
 export const templateAPI = {
   getTemplates: () => api.get('/templates'),
   uploadImage: (data) => api.post('/templates/upload-image', data, {
-    headers: { 'Content-Type': 'multipart/form-data' }
+    headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: MEDIA_UPLOAD_TIMEOUT_MS
   }),
   createTemplate: (data) => api.post('/templates', data),
   updateTemplate: (id, data) => api.put(`/templates/${id}`, data),
