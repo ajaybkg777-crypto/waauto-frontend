@@ -2,8 +2,11 @@ import axios from 'axios';
 
 const normalizeApiUrl = (value) => {
   const raw = String(value || '/api').trim().replace(/\/+$/, '');
-  if (!raw || raw === '/') return '/api';
-  if (raw === '/api' || raw.endsWith('/api')) return raw;
+  const isBrowser = typeof window !== 'undefined';
+  const isLocalhost = isBrowser && ['localhost', '127.0.0.1'].includes(window.location.hostname);
+  const isRelativeApi = raw === '/api' || raw.endsWith('/api');
+  if (!raw || raw === '/') return isLocalhost ? '/api' : PRODUCTION_API_URL;
+  if (isRelativeApi) return isLocalhost ? raw : PRODUCTION_API_URL;
   if (/^https?:\/\//i.test(raw)) return `${raw}/api`;
   return raw;
 };

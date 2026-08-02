@@ -321,11 +321,12 @@ export default function CreateBroadcast() {
       return;
     }
 
+    const extension = file.name.match(/\.[^.]+$/)?.[0]?.toLowerCase() || '';
     const validType = expectedType === 'image'
-      ? ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+      ? ['image/jpeg', 'image/png', 'image/webp'].includes(file.type) || ['.jpg', '.jpeg', '.png', '.webp'].includes(extension)
       : expectedType === 'video'
-        ? ['video/mp4', 'video/3gpp'].includes(file.type)
-        : Boolean(file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/')) || /\.pdf|\.docx?|\.xlsx?|\.pptx?|\.txt|\.csv$/i.test(file.name);
+        ? ['video/mp4', 'video/3gpp'].includes(file.type) || ['.mp4', '.3gp', '.3gpp'].includes(extension)
+        : Boolean(file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/')) || /\.(pdf|docx?|xlsx?|pptx?|txt|csv)$/i.test(file.name);
     if (!validType) {
       toast.error(`Upload a valid ${expectedType} file for this template header`);
       return;
@@ -336,6 +337,7 @@ export default function CreateBroadcast() {
     setUploadingImage(true);
 
     try {
+      const response = await broadcastAPI.uploadMedia(payload);
       const media = response.data.data;
       setFormData((current) => ({
         ...current,
