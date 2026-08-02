@@ -163,6 +163,13 @@ const getRowPhoneValue = (row = {}) => {
   return phoneColumn ? row[phoneColumn] : '';
 };
 const getVariableColumns = (columns = []) => columns.filter((column) => !isPhoneColumn(column));
+const MEDIA_ACCEPT_BY_TYPE = {
+  image: 'image/png,image/jpeg,image/webp',
+  video: 'video/mp4,video/3gpp',
+  document: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv'
+};
+
+const getHeaderMediaType = (headerType = 'none') => ['image', 'video', 'document'].includes(headerType) ? headerType : '';
 
 const resolvePreviewVariableValue = (value = '', formData = {}) => {
   const sampleRow = formData.csvRecipients?.[0] || {};
@@ -202,11 +209,12 @@ export default function CreateBroadcast() {
   const selectedTemplate = templates.find((template) => template._id === formData.templateId);
   const variables = useMemo(() => detectVariables(selectedTemplate?.body || formData.message), [selectedTemplate?.body, formData.message]);
   const headerType = selectedTemplate?.header?.type || 'none';
-  const needsImageHeader = headerType === 'image';
-  const unsupportedHeader = ['video', 'document', 'location'].includes(headerType);
+  const headerMediaType = getHeaderMediaType(headerType);
+  const needsMediaHeader = Boolean(headerMediaType);
+  const unsupportedHeader = ['location'].includes(headerType);
   const variablesComplete = variables.every((_, index) => String(formData.templateVariables[index] || '').trim());
-  const imageReady = !needsImageHeader || Boolean(formData.media?.url);
-  const imagePublicReady = !needsImageHeader || isPublicUrl(formData.media?.url);
+  const mediaReady = !needsMediaHeader || Boolean(formData.media?.url && formData.media?.type === headerMediaType);
+  const mediaPublicReady = !needsMediaHeader || isPublicUrl(formData.media?.url);
   const scheduleReady = !formData.scheduledAt || new Date(formData.scheduledAt).getTime() > Date.now();
   const metaReady = Boolean(whatsapp?.isConnected);
   const metaVerified = whatsapp?.businessVerificationStatus === 'verified'
@@ -274,7 +282,7 @@ export default function CreateBroadcast() {
 
   const canTemplateContinue = Boolean(formData.name.trim() && selectedTemplate && formData.message && !unsupportedHeader);
   const canAudienceContinue = validateAudience(false);
-  const canSubmit = metaReady && canTemplateContinue && canAudienceContinue && variablesComplete && imageReady && imagePublicReady && scheduleReady;
+  const canSubmit = metaReady && canTemplateContinue && canAudienceContinue && variablesComplete && mediaReady && mediaPublicReady && scheduleReady;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -288,7 +296,7 @@ export default function CreateBroadcast() {
       templateId: template._id,
       message: template.body || '',
       type: template.category || current.type,
-      media: template.header?.type === 'image' ? (template.media?.url ? template.media : null) : null,
+      media: getHeaderMediaType(template.header?.type) ? (template.media?.url ? template.media : null) : null,
       templateVariables: nextVariables.map((variable, index) => current.templateVariables[index] || getDefaultVariableValue(variable))
     }));
     setStep(1);
@@ -302,50 +310,52 @@ export default function CreateBroadcast() {
     });
   };
 
-  const uploadImage = async (event) => {
+  const uploadMedia = async (event) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
-    const maxSize = 25 * 1024 * 1024;
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
+    const expectedType = headerMediaType || 'image';
+    const maxSize = expectedType === 'video' ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
     if (file.size > maxSize) {
-      toast.error('Image must be 25MB or less');
+      toast.error(`${expectedType === 'video' ? 'Video must be 100MB' : 'Media must be 25MB'} or less`);
       return;
     }
-    if (!allowedTypes.includes(file.type)) {
-      toast.error('Use JPG, PNG, or WEBP image for Meta header');
-      return;
-    }
-    if (!file.type.startsWith('image/')) {
-      toast.error('Use an image file for this template header');
+
+    const validType = expectedType === 'image'
+      ? ['image/jpeg', 'image/png', 'image/webp'].includes(file.type)
+      : expectedType === 'video'
+        ? ['video/mp4', 'video/3gpp'].includes(file.type)
+        : Boolean(file.type && !file.type.startsWith('image/') && !file.type.startsWith('video/')) || /\.pdf|\.docx?|\.xlsx?|\.pptx?|\.txt|\.csv$/i.test(file.name);
+    if (!validType) {
+      toast.error(`Upload a valid ${expectedType} file for this template header`);
       return;
     }
 
     const payload = new FormData();
-    payload.append('image', file);
+    payload.append('media', file);
     setUploadingImage(true);
 
     try {
-      const response = await broadcastAPI.uploadImage(payload);
-      const image = response.data.data;
+      const media = response.data.data;
       setFormData((current) => ({
         ...current,
         media: {
-          type: 'image',
-          url: image.publicUrl || image.url,
-          filename: image.filename
+          type: media.type,
+          url: media.publicUrl || media.url,
+          filename: media.filename,
+          mimetype: media.mimetype
         }
       }));
-      toast.success('Header image added');
+      toast.success(`Header ${media.type} added`);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Image upload failed');
+      toast.error(error.response?.data?.message || 'Media upload failed');
     } finally {
       setUploadingImage(false);
       event.target.value = '';
     }
   };
 
-  const removeImage = () => {
+  const removeMedia = () => {
     setFormData((current) => ({ ...current, media: null }));
   };
 
@@ -431,7 +441,7 @@ export default function CreateBroadcast() {
       return;
     }
     if (nextStep > 2 && !canTemplateContinue) {
-      toast.error(unsupportedHeader ? 'This broadcast builder currently supports text and image header templates' : 'Choose an approved Meta template first');
+      toast.error(unsupportedHeader ? 'Location header templates are not supported for broadcast campaigns' : 'Choose an approved Meta template first');
       return;
     }
     if (nextStep > 2 && !variablesComplete) {
@@ -450,10 +460,10 @@ export default function CreateBroadcast() {
   const handleSubmit = async (event) => {
     event.preventDefault();
     if (!canSubmit) {
-      toast.error(needsImageHeader && !formData.media?.url
-        ? 'Upload an image header before creating this broadcast'
-        : !imagePublicReady
-          ? 'Image header needs a public URL. Set APP_BASE_URL in backend and upload again.'
+      toast.error(needsMediaHeader && !formData.media?.url
+        ? `Upload a ${headerMediaType} header before creating this broadcast`
+        : !mediaPublicReady
+          ? 'Media header needs a public URL. Set APP_BASE_URL in backend and upload again.'
           : !variablesComplete
             ? 'Fill every template variable before creating this broadcast'
             : !scheduleReady
@@ -551,15 +561,16 @@ export default function CreateBroadcast() {
                 formData={formData}
                 templates={templates}
                 selectedTemplate={selectedTemplate}
-                needsImageHeader={needsImageHeader}
+                headerMediaType={headerMediaType}
+                needsMediaHeader={needsMediaHeader}
                 unsupportedHeader={unsupportedHeader}
-                imagePublicReady={imagePublicReady}
+                mediaPublicReady={mediaPublicReady}
                 uploadingImage={uploadingImage}
                 fileInputRef={fileInputRef}
                 onChange={handleChange}
                 onTemplateSelect={handleTemplateSelect}
-                onUploadImage={uploadImage}
-                onRemoveImage={removeImage}
+                onUploadMedia={uploadMedia}
+                onRemoveMedia={removeMedia}
                 onNext={() => goToStep(2)}
                 disabled={!metaReady}
               />
@@ -747,8 +758,12 @@ export default function CreateBroadcast() {
   );
 }
 
-function TemplateStep({ formData, templates, selectedTemplate, needsImageHeader, unsupportedHeader, imagePublicReady, uploadingImage, fileInputRef, onChange, onTemplateSelect, onUploadImage, onRemoveImage, onNext, disabled }) {
-  const templateStepReady = formData.name.trim() && selectedTemplate && !unsupportedHeader && (!needsImageHeader || (formData.media?.url && imagePublicReady));
+function TemplateStep({ formData, templates, selectedTemplate, headerMediaType, needsMediaHeader, unsupportedHeader, mediaPublicReady, uploadingImage, fileInputRef, onChange, onTemplateSelect, onUploadMedia, onRemoveMedia, onNext, disabled }) {
+  const templateStepReady = formData.name.trim()
+    && selectedTemplate
+    && !unsupportedHeader
+    && (!needsMediaHeader || (formData.media?.url && formData.media?.type === headerMediaType && mediaPublicReady));
+  const MediaIcon = headerMediaType === 'document' ? DocumentArrowUpIcon : PhotoIcon;
 
   return (
     <div>
@@ -803,30 +818,31 @@ function TemplateStep({ formData, templates, selectedTemplate, needsImageHeader,
           <ExclamationTriangleIcon className="h-6 w-6" />
           <div>
             <b>Unsupported broadcast header</b>
-            <span>Use a text or image header template for broadcast campaigns. Video/document template sending can be added separately.</span>
+            <span>Location header templates are not supported for broadcast campaigns.</span>
           </div>
         </div>
       )}
 
-      {needsImageHeader && (
+      {needsMediaHeader && (
         <div className="mt-4">
-          <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={onUploadImage} className="hidden" />
+          <input ref={fileInputRef} type="file" accept={MEDIA_ACCEPT_BY_TYPE[headerMediaType]} onChange={onUploadMedia} className="hidden" />
           <div className="bb-image-uploader">
             <div className="bb-image-preview">
-              {formData.media?.url ? <img src={formData.media.url} alt="Header" /> : <PhotoIcon className="h-9 w-9" />}
+              {headerMediaType === 'image' && formData.media?.url ? <img src={formData.media.url} alt="Header" /> : <MediaIcon className="h-9 w-9" />}
             </div>
             <div className="flex-1">
-              <p className="font-bold text-[#0f2b63]">Image header required</p>
-              <p className="mt-1 text-sm text-slate-500">Upload the image that Meta will send in the template header.</p>
+              <p className="font-bold text-[#0f2b63]">{headerMediaType.charAt(0).toUpperCase() + headerMediaType.slice(1)} header required</p>
+              <p className="mt-1 text-sm text-slate-500">Upload the {headerMediaType} that Meta will send in the template header.</p>
               {formData.media?.filename && <p className="mt-1 text-xs font-bold text-emerald-700">{formData.media.filename}</p>}
-              {formData.media?.url && !imagePublicReady && <p className="mt-1 text-xs font-bold text-rose-700">Public APP_BASE_URL is required before Meta can send this image.</p>}
+              {formData.media?.url && formData.media?.type !== headerMediaType && <p className="mt-1 text-xs font-bold text-rose-700">Upload a {headerMediaType} file for this template.</p>}
+              {formData.media?.url && !mediaPublicReady && <p className="mt-1 text-xs font-bold text-rose-700">Public APP_BASE_URL is required before Meta can send this media.</p>}
             </div>
             <div className="bb-image-actions">
               <button type="button" className="bb-action" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage}>
-                {uploadingImage ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <PhotoIcon className="h-5 w-5" />}
+                {uploadingImage ? <ArrowPathIcon className="h-5 w-5 animate-spin" /> : <MediaIcon className="h-5 w-5" />}
                 {formData.media?.url ? 'Change' : 'Upload'}
               </button>
-              {formData.media?.url && <button type="button" className="bb-danger" onClick={onRemoveImage}><XMarkIcon className="h-5 w-5" /> Remove</button>}
+              {formData.media?.url && <button type="button" className="bb-danger" onClick={onRemoveMedia}><XMarkIcon className="h-5 w-5" /> Remove</button>}
             </div>
           </div>
         </div>
@@ -1068,6 +1084,8 @@ function PhonePreview({ whatsapp, template, message, media, activeButton, setAct
             <div className="bb-date">Today</div>
             <div className="bb-bubble">
               {headerType === 'image' && (media?.url ? <img src={media.url} alt="Header" /> : <div className="bb-header-placeholder">Image header</div>)}
+              {headerType === 'video' && <div className="bb-header-placeholder">{media?.filename || 'Video header'}</div>}
+              {headerType === 'document' && <div className="bb-header-placeholder">{media?.filename || 'Document header'}</div>}
               {headerType === 'text' && template?.header?.text && <div className="px-3 pt-3 text-sm font-bold text-slate-900">{template.header.text}</div>}
               <div className="bb-bubble-body">{message}</div>
               {template?.footer && <div className="bb-footer">{template.footer}</div>}

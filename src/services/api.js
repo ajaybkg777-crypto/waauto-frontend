@@ -163,6 +163,9 @@ export const chatbotAPI = {
 export const broadcastAPI = {
   getBroadcasts: (params) => api.get('/broadcasts', { params }),
   getBroadcast: (id) => api.get(`/broadcasts/${id}`),
+  uploadMedia: (data) => api.post('/broadcasts/upload-media', data, {
+    headers: { 'Content-Type': 'multipart/form-data' }
+  }),
   uploadImage: (data) => api.post('/broadcasts/upload-image', data, {
     headers: { 'Content-Type': 'multipart/form-data' }
   }),
