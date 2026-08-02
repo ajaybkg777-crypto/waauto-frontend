@@ -350,7 +350,8 @@ export default function CreateBroadcast() {
       }));
       toast.success(`Header ${media.type} added`);
     } catch (error) {
-      toast.error(error.response?.data?.message || 'Media upload failed');
+      console.error('Media upload failed:', error);
+      toast.error(error.response?.data?.message || error.message || 'Media upload failed');
     } finally {
       setUploadingImage(false);
       event.target.value = '';
