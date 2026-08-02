@@ -168,6 +168,11 @@ const MEDIA_ACCEPT_BY_TYPE = {
   video: 'video/mp4,video/3gpp',
   document: '.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.csv,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,application/vnd.ms-excel,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-powerpoint,application/vnd.openxmlformats-officedocument.presentationml.presentation,text/plain,text/csv'
 };
+const MEDIA_LIMITS = {
+  image: { bytes: 25 * 1024 * 1024, label: '25MB' },
+  video: { bytes: 16 * 1024 * 1024, label: '16MB' },
+  document: { bytes: 25 * 1024 * 1024, label: '25MB' }
+};
 
 const getHeaderMediaType = (headerType = 'none') => ['image', 'video', 'document'].includes(headerType) ? headerType : '';
 
@@ -315,9 +320,9 @@ export default function CreateBroadcast() {
     if (!file) return;
 
     const expectedType = headerMediaType || 'image';
-    const maxSize = expectedType === 'video' ? 100 * 1024 * 1024 : 25 * 1024 * 1024;
-    if (file.size > maxSize) {
-      toast.error(`${expectedType === 'video' ? 'Video must be 100MB' : 'Media must be 25MB'} or less`);
+    const limit = MEDIA_LIMITS[expectedType] || MEDIA_LIMITS.image;
+    if (file.size > limit.bytes) {
+      toast.error(`${expectedType.charAt(0).toUpperCase() + expectedType.slice(1)} must be ${limit.label} or less`);
       return;
     }
 

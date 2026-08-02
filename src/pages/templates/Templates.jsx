@@ -71,9 +71,15 @@ const getMediaAccept = (type) => {
 
 const getSupportedFormats = (type) => {
   if (type === 'image') return 'PNG, JPG, WEBP up to 25MB';
-  if (type === 'video') return 'MP4, MOV up to 25MB';
+  if (type === 'video') return 'MP4, MOV up to 16MB';
   if (type === 'document') return 'PDF, DOC, XLS, PPT up to 25MB';
   return '';
+};
+
+const MEDIA_LIMITS = {
+  image: { bytes: 25 * 1024 * 1024, label: '25MB' },
+  video: { bytes: 16 * 1024 * 1024, label: '16MB' },
+  document: { bytes: 25 * 1024 * 1024, label: '25MB' }
 };
 
 const detectVariables = (body = '') => {
@@ -288,10 +294,10 @@ export default function Templates() {
   const uploadMedia = async (file) => {
     if (!file) return;
     const headerType = formData.header.type;
-    const maxSize = 25 * 1024 * 1024;
+    const limit = MEDIA_LIMITS[headerType] || MEDIA_LIMITS.image;
 
-    if (file.size > maxSize) {
-      toast.error('File must be 25MB or less');
+    if (file.size > limit.bytes) {
+      toast.error(`${headerType.charAt(0).toUpperCase() + headerType.slice(1)} must be ${limit.label} or less`);
       return;
     }
 
