@@ -330,6 +330,7 @@ export default function Templates() {
           url: response.data.data.publicUrl || response.data.data.url,
           localUrl: response.data.data.localUrl || response.data.data.url,
           handle: response.data.data.handle || '',
+          storage: response.data.data.storage,
           filename: response.data.data.filename,
           mimetype: response.data.data.mimetype
         }
