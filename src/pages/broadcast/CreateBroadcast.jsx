@@ -349,6 +349,8 @@ export default function CreateBroadcast() {
         media: {
           type: media.type,
           url: media.publicUrl || media.url,
+          localUrl: media.localUrl,
+          whatsappMediaId: media.whatsappMediaId,
           filename: media.filename,
           mimetype: media.mimetype
         }
