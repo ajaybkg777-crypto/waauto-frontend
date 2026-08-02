@@ -219,7 +219,7 @@ export default function CreateBroadcast() {
   const unsupportedHeader = ['location'].includes(headerType);
   const variablesComplete = variables.every((_, index) => String(formData.templateVariables[index] || '').trim());
   const mediaReady = !needsMediaHeader || Boolean(formData.media?.url && formData.media?.type === headerMediaType);
-  const mediaPublicReady = !needsMediaHeader || isPublicUrl(formData.media?.url);
+  const mediaDeliverableReady = !needsMediaHeader || Boolean(formData.media?.whatsappMediaId || isPublicUrl(formData.media?.url));
   const scheduleReady = !formData.scheduledAt || new Date(formData.scheduledAt).getTime() > Date.now();
   const metaReady = Boolean(whatsapp?.isConnected);
   const metaVerified = whatsapp?.businessVerificationStatus === 'verified'
@@ -287,7 +287,7 @@ export default function CreateBroadcast() {
 
   const canTemplateContinue = Boolean(formData.name.trim() && selectedTemplate && formData.message && !unsupportedHeader);
   const canAudienceContinue = validateAudience(false);
-  const canSubmit = metaReady && canTemplateContinue && canAudienceContinue && variablesComplete && mediaReady && mediaPublicReady && scheduleReady;
+  const canSubmit = metaReady && canTemplateContinue && canAudienceContinue && variablesComplete && mediaReady && mediaDeliverableReady && scheduleReady;
 
   const handleChange = (event) => {
     const { name, value } = event.target;
@@ -301,7 +301,7 @@ export default function CreateBroadcast() {
       templateId: template._id,
       message: template.body || '',
       type: template.category || current.type,
-      media: getHeaderMediaType(template.header?.type) ? (template.media?.url ? template.media : null) : null,
+      media: null,
       templateVariables: nextVariables.map((variable, index) => current.templateVariables[index] || getDefaultVariableValue(variable))
     }));
     setStep(1);
@@ -472,8 +472,8 @@ export default function CreateBroadcast() {
     if (!canSubmit) {
       toast.error(needsMediaHeader && !formData.media?.url
         ? `Upload a ${headerMediaType} header before creating this broadcast`
-        : !mediaPublicReady
-          ? 'Media header needs a public URL. Set APP_BASE_URL in backend and upload again.'
+        : !mediaDeliverableReady
+          ? 'Upload the header media again so WhatsApp can deliver it.'
           : !variablesComplete
             ? 'Fill every template variable before creating this broadcast'
             : !scheduleReady
@@ -574,7 +574,7 @@ export default function CreateBroadcast() {
                 headerMediaType={headerMediaType}
                 needsMediaHeader={needsMediaHeader}
                 unsupportedHeader={unsupportedHeader}
-                mediaPublicReady={mediaPublicReady}
+                mediaPublicReady={mediaDeliverableReady}
                 uploadingImage={uploadingImage}
                 fileInputRef={fileInputRef}
                 onChange={handleChange}
@@ -845,7 +845,7 @@ function TemplateStep({ formData, templates, selectedTemplate, headerMediaType, 
               <p className="mt-1 text-sm text-slate-500">Upload the {headerMediaType} that Meta will send in the template header.</p>
               {formData.media?.filename && <p className="mt-1 text-xs font-bold text-emerald-700">{formData.media.filename}</p>}
               {formData.media?.url && formData.media?.type !== headerMediaType && <p className="mt-1 text-xs font-bold text-rose-700">Upload a {headerMediaType} file for this template.</p>}
-              {formData.media?.url && !mediaPublicReady && <p className="mt-1 text-xs font-bold text-rose-700">Public APP_BASE_URL is required before Meta can send this media.</p>}
+              {formData.media?.url && !mediaPublicReady && <p className="mt-1 text-xs font-bold text-rose-700">Upload the media again so WhatsApp can deliver it.</p>}
             </div>
             <div className="bb-image-actions">
               <button type="button" className="bb-action" onClick={() => fileInputRef.current?.click()} disabled={uploadingImage}>
